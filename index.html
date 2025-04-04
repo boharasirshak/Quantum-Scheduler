@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BIPIN: SRTN, Round Robin Quantum Job Scheduling Calculator</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Bipin: SRTN and Round Robin Job Scheduling Calculator</h1>
+
+      <div class="input-group">
+        <label for="cpuCount">Number of CPUs:</label>
+        <input type="number" id="cpuCount" value="1" min="1" />
+      </div>
+
+      <div class="input-group">
+        <label for="timeQuantum">Time Quantum:</label>
+        <input
+          type="number"
+          id="timeQuantum"
+          value="0.5"
+          min="0.5"
+          step="0.5"
+        />
+      </div>
+
+      <div>
+        <button onclick="addJob()">Add Job</button>
+        <button onclick="removeLastJob()">Remove Last Job</button>
+        <button onclick="calculateSRTN()">Calculate SRTN</button>
+        <button onclick="calculateRoundRobin()">Calculate Round Robin</button>
+      </div>
+
+      <table id="jobTable">
+        <thead>
+          <tr>
+            <th>#Jobs</th>
+            <th>Arrival Time</th>
+            <th>Burst Time</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Turnaround Time</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div id="averageTurnaroundTime"></div>
+
+      <div id="ganttChartContainer">
+        <div id="ganttChart"></div>
+      </div>
+    </div>
+
+    <script src="js/job.js"></script>
+    <script src="js/scheduling.js"></script>
+    <script src="js/visualization.js"></script>
+    <script>
+      // Initialize with sample jobs
+      addJob();
+      addJob();
+      addJob();
+      updateJobTable();
+    </script>
+  </body>
+</html>
