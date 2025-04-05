@@ -12,14 +12,14 @@ function calculateSRTN() {
   let jobQueueHistory = [];
   let jobQueue = [];
   let nextScheduleTime = 0.0;
-  let newJobArrived = false;
-  let needRescheduleAfterCompletions = false;
 
-  console.log("Starting SRTN scheduling with CPU prioritization");
+  console.log("Starting SRTN scheduling with refined CPU prioritization");
 
-  while (completedJobs < jobs.length) {
-    newJobArrived = false;
-    needRescheduleAfterCompletions = false;
+  while (
+    completedJobs < jobs.length ||
+    runningJobs.some((job) => job !== null)
+  ) {
+    let newJobArrived = false;
 
     // Check for new arrivals
     jobs.forEach((job) => {
@@ -29,87 +29,83 @@ function calculateSRTN() {
         !jobQueue.includes(job) &&
         !runningJobs.includes(job)
       ) {
+        console.log(`Time ${currentTime}: Job J${job.id} arrived.`);
         jobQueue.push(job);
         newJobArrived = true;
       }
     });
 
-    // Check if we need to reschedule
-    let shouldReschedule = false;
-
     // Check for completed jobs
-    let completedJobFound = false;
+    let jobCompletedThisStep = false;
     runningJobs.forEach((job, index) => {
       if (job && job.remainingTime <= 0.001) {
-        completedJobFound = true;
-        job.endTime = currentTime + timeStep;
+        console.log(
+          `Time ${currentTime}: Job J${job.id} completed on CPU ${index}.`
+        );
+        jobCompletedThisStep = true;
+        job.endTime = currentTime; // Completion time is current time
         job.turnaroundTime = job.endTime - job.arrivalTime;
         completedJobs++;
         runningJobs[index] = null;
-        needRescheduleAfterCompletions = true;
       }
     });
 
-    if (completedJobFound) {
-      shouldReschedule = true;
+    // Decide if preemption is needed due to a new shorter job
+    let needPreemption = false;
+    if (newJobArrived && jobQueue.length > 0) {
+      const smallestInQueue = jobQueue.reduce(
+        (min, job) => (job.remainingTime < min ? job.remainingTime : min),
+        Infinity
+      );
+      runningJobs.forEach((job) => {
+        if (job && smallestInQueue < job.remainingTime) {
+          console.log(
+            `Time ${currentTime}: Preemption needed. New job is shorter than running J${job.id}.`
+          );
+          needPreemption = true;
+        }
+      });
     }
 
-    // Reschedule at 1-second intervals, when a new job arrives, or when a job completes
+    // Decide if we need to re-evaluate assignments
+    const isScheduleInterval = Math.abs(currentTime - nextScheduleTime) < 0.001;
+    const hasIdleCpu = runningJobs.some((j) => j === null);
+
+    let shouldReassign = false;
     if (
-      Math.abs(currentTime - nextScheduleTime) < 0.001 ||
-      newJobArrived ||
-      completedJobFound
+      needPreemption ||
+      jobCompletedThisStep ||
+      (isScheduleInterval && hasIdleCpu) ||
+      currentTime === 0
     ) {
-      // Check if any new job has shorter remaining time than running jobs
-      let needPreemption = false;
-
-      if (jobQueue.length > 0) {
-        // Find smallest remaining time in queue
-        const smallestInQueue = jobQueue.reduce(
-          (min, job) => (job.remainingTime < min ? job.remainingTime : min),
-          Infinity
-        );
-
-        // Check if smaller than any running job
-        runningJobs.forEach((job) => {
-          if (
-            job &&
-            jobQueue.length > 0 &&
-            smallestInQueue < job.remainingTime
-          ) {
-            needPreemption = true;
-          }
-        });
-      }
-
-      // Decide if we need to do a reschedule
-      if (
-        needPreemption ||
-        Math.abs(currentTime - nextScheduleTime) < 0.001 ||
-        runningJobs.some((job) => job === null) ||
-        completedJobFound ||
-        currentTime === 0
-      ) {
-        shouldReschedule = true;
-      }
-
-      if (Math.abs(currentTime - nextScheduleTime) < 0.001) {
-        nextScheduleTime = currentTime + 1.0;
-      }
+      shouldReassign = true;
     }
 
-    if (shouldReschedule) {
-      // Return all unfinished jobs to queue for re-evaluation
-      if (!needRescheduleAfterCompletions || newJobArrived) {
+    // Advance the 1-second interval marker
+    if (isScheduleInterval) {
+      nextScheduleTime = currentTime + 1.0;
+    }
+
+    if (shouldReassign) {
+      console.log(
+        `Time ${currentTime}: Reassigning jobs. Preemption: ${needPreemption}, Completion: ${jobCompletedThisStep}, Interval: ${isScheduleInterval}, Idle CPU: ${hasIdleCpu}`
+      );
+      // If preemption is needed, return all running jobs to queue
+      if (needPreemption) {
+        console.log(
+          `Time ${currentTime}: Preemption detected, returning running jobs to queue.`
+        );
         runningJobs.forEach((job, index) => {
-          if (job && job.remainingTime > 0) {
+          if (job) {
+            // Only add non-null jobs
             jobQueue.push(job);
             runningJobs[index] = null;
           }
         });
       }
+      // Note: Completed jobs are already set to null
 
-      // Sort by remaining time (shortest first)
+      // Sort all available jobs (original queue + returned jobs)
       jobQueue.sort((a, b) => {
         if (Math.abs(a.remainingTime - b.remainingTime) < 0.001) {
           return a.arrivalTime - b.arrivalTime;
@@ -117,7 +113,7 @@ function calculateSRTN() {
         return a.remainingTime - b.remainingTime;
       });
 
-      // Record queue state
+      // Record queue state AFTER sorting and BEFORE assignment
       jobQueueHistory.push({
         time: currentTime,
         jobs: jobQueue.map((job) => ({
@@ -126,65 +122,82 @@ function calculateSRTN() {
         })),
       });
 
-      // EXPLICIT CPU PRIORITY ASSIGNMENT
-      // Take all available jobs and assign in order to available CPUs
-      // with CPU 0 getting the shortest job, CPU 1 the next shortest, etc.
+      // Assign jobs using priority logic (CPU 0 first)
       const availableJobs = [...jobQueue];
-      jobQueue.length = 0; // Clear the queue
+      jobQueue.length = 0;
 
-      // First pass: Fill CPU 0 first with the shortest job if it's empty
+      // Fill CPU 0 first if idle
       if (runningJobs[0] === null && availableJobs.length > 0) {
-        const shortestJob = availableJobs.shift(); // Get shortest job
-        if (shortestJob.startTime === -1) {
-          shortestJob.startTime = currentTime;
-        }
+        const shortestJob = availableJobs.shift(); // Takes the shortest
+        if (shortestJob.startTime === -1) shortestJob.startTime = currentTime;
         runningJobs[0] = shortestJob;
         console.log(
-          `Time ${currentTime}: Assigned J${shortestJob.id} (remaining: ${shortestJob.remainingTime}) to CPU 0`
+          `Time ${currentTime}: Assigned J${
+            shortestJob.id
+          } (rem: ${shortestJob.remainingTime.toFixed(1)}) to CPU 0`
         );
       }
-
-      // Second pass: Fill remaining CPUs with remaining jobs
+      // Fill other CPUs if idle
       for (let i = 1; i < cpuCount; i++) {
         if (runningJobs[i] === null && availableJobs.length > 0) {
-          const nextJob = availableJobs.shift();
-          if (nextJob.startTime === -1) {
-            nextJob.startTime = currentTime;
-          }
+          const nextJob = availableJobs.shift(); // Takes the next shortest
+          if (nextJob.startTime === -1) nextJob.startTime = currentTime;
           runningJobs[i] = nextJob;
           console.log(
-            `Time ${currentTime}: Assigned J${nextJob.id} (remaining: ${nextJob.remainingTime}) to CPU ${i}`
+            `Time ${currentTime}: Assigned J${
+              nextJob.id
+            } (rem: ${nextJob.remainingTime.toFixed(1)}) to CPU ${i}`
           );
         }
       }
-
-      // Return remaining jobs to queue
-      jobQueue.push(...availableJobs);
+      jobQueue.push(...availableJobs); // Put back extras
     }
 
-    // Process current time step
-    runningJobs.forEach((job, cpuIndex) => {
-      if (job !== null) {
-        jobHistory.push({
-          jobId: job.id,
-          cpuId: cpuIndex,
-          startTime: currentTime,
-          endTime: currentTime + timeStep,
-        });
+    // If no jobs are running and queue is empty, break the loop
+    if (completedJobs >= jobs.length && !runningJobs.some((j) => j !== null)) {
+      break;
+    }
 
-        job.remainingTime -= timeStep;
+    // Process current time step only if there are jobs to process or in queue
+    if (
+      runningJobs.some((j) => j !== null) ||
+      jobQueue.length > 0 ||
+      jobs.some((j) => j.arrivalTime >= currentTime && j.remainingTime > 0)
+    ) {
+      runningJobs.forEach((job, cpuIndex) => {
+        if (job !== null) {
+          // Add history entry for the time step execution
+          jobHistory.push({
+            jobId: job.id,
+            cpuId: cpuIndex,
+            startTime: currentTime,
+            endTime: currentTime + timeStep,
+          });
+          job.remainingTime -= timeStep;
+        } else {
+          // Add idle time entry if CPU is free
+          jobHistory.push({
+            jobId: "idle",
+            cpuId: cpuIndex,
+            startTime: currentTime,
+            endTime: currentTime + timeStep,
+          });
+        }
+      });
+      currentTime += timeStep;
+    } else {
+      // If nothing to do, advance time slightly to check for future arrivals?
+      // Or maybe just break if queue empty and no jobs running/arriving soon?
+      // For now, let's just increment time if something might happen later
+      const futureArrival = jobs.some((j) => j.arrivalTime > currentTime);
+      if (futureArrival) {
+        currentTime += timeStep; // Advance time to check arrivals later
       } else {
-        jobHistory.push({
-          jobId: "idle",
-          cpuId: cpuIndex,
-          startTime: currentTime,
-          endTime: currentTime + timeStep,
-        });
+        break; // Nothing more will happen
       }
-    });
-
-    currentTime += timeStep;
+    }
   }
+  console.log("Scheduling complete.");
 
   updateJobTable();
   calculateAverageTurnaroundTime();
