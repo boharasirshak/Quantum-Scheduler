@@ -11,9 +11,11 @@ function calculateSRTN() {
   let jobHistory = [];
   let jobQueueHistory = [];
   let jobQueue = [];
-  let nextScheduleTime = 0.0; // Start scheduling from time 0
+  let nextScheduleTime = 0.0;
   let newJobArrived = false;
   let needRescheduleAfterCompletions = false;
+
+  console.log("Starting SRTN scheduling with CPU prioritization");
 
   while (completedJobs < jobs.length) {
     newJobArrived = false;
@@ -98,7 +100,6 @@ function calculateSRTN() {
 
     if (shouldReschedule) {
       // Return all unfinished jobs to queue for re-evaluation
-      // But only if it's a full reschedule or if job preemption is needed
       if (!needRescheduleAfterCompletions || newJobArrived) {
         runningJobs.forEach((job, index) => {
           if (job && job.remainingTime > 0) {
@@ -125,17 +126,40 @@ function calculateSRTN() {
         })),
       });
 
-      // Assign shortest remaining time jobs to CPUs
-      for (let i = 0; i < cpuCount && jobQueue.length > 0; i++) {
-        if (runningJobs[i] === null) {
-          const nextJob = jobQueue.shift();
+      // EXPLICIT CPU PRIORITY ASSIGNMENT
+      // Take all available jobs and assign in order to available CPUs
+      // with CPU 0 getting the shortest job, CPU 1 the next shortest, etc.
+      const availableJobs = [...jobQueue];
+      jobQueue.length = 0; // Clear the queue
+
+      // First pass: Fill CPU 0 first with the shortest job if it's empty
+      if (runningJobs[0] === null && availableJobs.length > 0) {
+        const shortestJob = availableJobs.shift(); // Get shortest job
+        if (shortestJob.startTime === -1) {
+          shortestJob.startTime = currentTime;
+        }
+        runningJobs[0] = shortestJob;
+        console.log(
+          `Time ${currentTime}: Assigned J${shortestJob.id} (remaining: ${shortestJob.remainingTime}) to CPU 0`
+        );
+      }
+
+      // Second pass: Fill remaining CPUs with remaining jobs
+      for (let i = 1; i < cpuCount; i++) {
+        if (runningJobs[i] === null && availableJobs.length > 0) {
+          const nextJob = availableJobs.shift();
           if (nextJob.startTime === -1) {
             nextJob.startTime = currentTime;
           }
-          nextJob.lastExecutionTime = currentTime;
           runningJobs[i] = nextJob;
+          console.log(
+            `Time ${currentTime}: Assigned J${nextJob.id} (remaining: ${nextJob.remainingTime}) to CPU ${i}`
+          );
         }
       }
+
+      // Return remaining jobs to queue
+      jobQueue.push(...availableJobs);
     }
 
     // Process current time step
