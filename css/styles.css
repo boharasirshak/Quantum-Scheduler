@@ -80,23 +80,49 @@ th {
   height: 40px;
   margin-bottom: 10px;
   position: relative;
-  display: flex;
-  flex-wrap: nowrap;
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: visible;
 }
 
 .job-block {
-  position: relative;
+  position: absolute;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
-  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 12px;
+  border-right: 1px solid rgba(255,255,255,0.3);
+  margin: 0;
+  padding: 0;
+  top: 0;
 }
 
 .idle-block {
-  background-color: transparent;
+  background-color: #f0f0f0;
+  border-right: 1px solid #e0e0e0;
+  opacity: 0.5;
+}
+
+.grid-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.grid-line {
+  position: absolute;
+  height: 100%;
+  width: 1px;
+  background-color: rgba(0, 0, 0, 0.1);
+  transform: translateX(-50%);
 }
 
 .time-axis {
@@ -110,47 +136,17 @@ th {
   position: absolute;
   font-size: 12px;
   top: -20px;
+  transform: translateX(-50%);
   text-align: center;
-}
-
-.dashed-line {
-  position: absolute;
-  height: 100%;
-  width: 1px;
-  background-color: #999;
-  border-left: 1px dashed #000;
-  top: 0;
 }
 
 .arrival-line {
   position: absolute;
   height: 100%;
-  width: 0.5px;
-  background-color: #ccc;
-  border-left: 1px dashed #666;
+  width: 1px;
+  background-color: rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%);
   top: 0;
-}
-
-#averageTurnaroundTime {
-  margin-top: 20px;
-  font-weight: bold;
-  font-size: 18px;
-}
-
-.queue-container {
-  position: absolute;
-  font-size: 14px;
-  text-align: left;
-  background-color: rgba(255, 255, 255, 0.8);
-  border: 1px solid #000;
-  border-radius: 4px;
-  padding: 5px;
-  z-index: 10;
-  font-weight: bold;
-}
-
-.queue-jobs {
-  font-style: italic;
 }
 
 .job-arrival {
@@ -158,6 +154,7 @@ th {
   font-size: 12px;
   text-align: center;
   top: -20px;
+  transform: translateX(-50%);
 }
 
 .job-arrival-name {
@@ -166,10 +163,129 @@ th {
   text-align: center;
   top: -35px;
   font-weight: bold;
+  transform: translateX(-50%);
+}
+
+.queue-container {
+  position: absolute;
+  font-size: 12px;
+  text-align: left;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 3px 5px;
+  z-index: 10;
+  transform: translateX(-50%);
+  min-width: 60px;
+}
+
+.queue-jobs {
+  font-style: italic;
+  white-space: nowrap;
 }
 
 #ganttChartContainer {
   position: relative;
   overflow-x: auto;
   padding-bottom: 100px;
+}
+
+/* Toggle Switch Styles */
+.toggle-switch {
+  display: inline-block;
+  position: relative;
+  width: 200px;
+  height: 34px;
+  vertical-align: middle;
+  margin: 5px 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-label {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e0e0e0;
+  transition: .4s;
+  border-radius: 34px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 15px;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.toggle-label:before {
+  position: absolute;
+  content: "";
+  height: 30px;
+  width: 95px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #ffffff;
+  transition: .4s;
+  border-radius: 34px;
+  z-index: 1;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-label {
+  background-color: #388e3c;
+}
+
+.toggle-switch input:not(:checked) + .toggle-label {
+  background-color: #78909c;
+}
+
+.toggle-switch input:checked + .toggle-label:before {
+  transform: translateX(101px);
+  background-color: #c8e6c9;
+}
+
+.toggle-switch input:not(:checked) + .toggle-label:before {
+  background-color: #cfd8dc;
+}
+
+.mode-text {
+  color: #333;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 2;
+  width: 85px;
+  text-align: center;
+}
+
+.toggle-switch input:checked + .toggle-label .mode-text:first-child {
+  color: #ffffff;
+}
+
+.toggle-switch input:not(:checked) + .toggle-label .mode-text:last-child {
+  color: #ffffff;
+}
+
+.toggle-switch input:not(:checked) + .toggle-label .mode-text:first-child {
+  color: #333;
+}
+
+.toggle-switch input:checked + .toggle-label .mode-text:last-child {
+  color: #333;
+}
+
+.quantum-input {
+  transition: all 0.3s;
+}
+
+.quantum-input.hidden {
+  opacity: 0.3;
+  pointer-events: none;
+  background-color: #f0f0f0;
 }
