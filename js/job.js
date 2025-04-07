@@ -41,6 +41,37 @@ const colors = [
   "#C06C84",
 ];
 
+let isQuantumMode = true;
+
+function updateSchedulingMode() {
+  const schedulingModeToggle = document.getElementById('schedulingMode');
+  isQuantumMode = !schedulingModeToggle.checked;
+  
+  const quantumInput = document.querySelector('.quantum-input');
+  const timeQuantumField = document.getElementById('timeQuantum');
+  
+  if (quantumInput && timeQuantumField) {
+    if (isQuantumMode) {
+      quantumInput.classList.remove('hidden');
+      timeQuantumField.removeAttribute('disabled');
+    } else {
+      quantumInput.classList.add('hidden');
+      timeQuantumField.setAttribute('disabled', 'disabled');
+      timeQuantumField.value = '1'; // Reset to whole number in Anytime mode
+    }
+  }
+  
+  // Update all burst time inputs to enforce whole numbers in Anytime mode
+  if (!isQuantumMode) {
+    jobs.forEach((job, index) => {
+      if (!Number.isInteger(job.burstTime)) {
+        job.updateProperty('burstTime', Math.ceil(job.burstTime));
+        updateJobTable(); // Refresh the table to show updated values
+      }
+    });
+  }
+}
+
 function addJob() {
   const newJob = new Job(jobs.length + 1);
   jobs.push(newJob);
@@ -75,6 +106,21 @@ function updateJobTable() {
 }
 
 function updateJobProperty(index, property, value) {
+  const numValue = parseFloat(value);
+  
+  // Validate based on scheduling mode
+  if (!isQuantumMode && property === 'burstTime') {
+    if (!Number.isInteger(numValue)) {
+      alert('In Anytime mode, burst time must be a whole number. Please enter a non-decimal value.');
+      // Reset the input to the last valid value
+      const input = document.querySelector(`#jobTable tbody tr:nth-child(${index + 1}) td:nth-child(3) input`);
+      if (input) {
+        input.value = jobs[index].burstTime;
+      }
+      return;
+    }
+  }
+  
   jobs[index].updateProperty(property, value);
 }
 
@@ -93,3 +139,10 @@ function calculateAverageTurnaroundTime() {
         Average Turnaround Time: (${calculation}) / ${jobs.length} = <b>${result}</b>
     `;
 }
+
+// Add event listener for scheduling mode toggle
+window.addEventListener('load', function() {
+  const schedulingModeToggle = document.getElementById('schedulingMode');
+  schedulingModeToggle.addEventListener('change', updateSchedulingMode);
+  updateSchedulingMode(); // Initialize the mode
+});

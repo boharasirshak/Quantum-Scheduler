@@ -16,6 +16,17 @@
       </div>
 
       <div class="input-group">
+        <label for="schedulingMode">Scheduling Mode:</label>
+        <div class="toggle-switch">
+          <input type="checkbox" id="schedulingMode" checked>
+          <label for="schedulingMode" class="toggle-label">
+            <span class="mode-text">Quantum</span>
+            <span class="mode-text">Anytime</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="input-group quantum-input">
         <label for="timeQuantum">Time Quantum:</label>
         <input
           type="number"
